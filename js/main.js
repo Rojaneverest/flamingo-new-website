@@ -199,7 +199,42 @@
     onManifesto();
   }
 
-  /* ───────── Smooth anchor offset (nav height) ───────── */
+  /* ───────── Fluid anchor scrolling ─────────
+     Native smooth scroll is short and snappy; this is a long,
+     distance-aware glide the user can interrupt at any moment. */
+  let scrollAnim = null;
+
+  const cancelScrollAnim = () => {
+    if (scrollAnim !== null) {
+      cancelAnimationFrame(scrollAnim);
+      scrollAnim = null;
+    }
+  };
+  ["wheel", "touchstart", "keydown"].forEach((evt) =>
+    window.addEventListener(evt, cancelScrollAnim, { passive: true })
+  );
+
+  const easeInOutQuint = (t) =>
+    t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2;
+
+  const smoothScrollTo = (targetY) => {
+    cancelScrollAnim();
+    const startY = window.scrollY;
+    const maxY = document.documentElement.scrollHeight - window.innerHeight;
+    const endY = Math.max(0, Math.min(targetY, maxY));
+    const dist = endY - startY;
+    if (Math.abs(dist) < 2) return;
+    // ~1s for a section hop, up to ~1.6s across the page
+    const dur = Math.min(1600, Math.max(850, Math.abs(dist) * 0.35));
+    const t0 = performance.now();
+    const step = (now) => {
+      const p = Math.min((now - t0) / dur, 1);
+      window.scrollTo(0, startY + dist * easeInOutQuint(p));
+      scrollAnim = p < 1 ? requestAnimationFrame(step) : null;
+    };
+    scrollAnim = requestAnimationFrame(step);
+  };
+
   document.querySelectorAll('a[href^="#"]').forEach((a) => {
     a.addEventListener("click", (e) => {
       const id = a.getAttribute("href");
@@ -208,7 +243,11 @@
       if (!target) return;
       e.preventDefault();
       const top = target.getBoundingClientRect().top + window.scrollY - 70;
-      window.scrollTo({ top, behavior: prefersReduced ? "auto" : "smooth" });
+      if (prefersReduced) {
+        window.scrollTo(0, top);
+      } else {
+        smoothScrollTo(top);
+      }
     });
   });
 
