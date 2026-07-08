@@ -216,14 +216,19 @@
 
     /* ── Hero intro timeline (played when the curtain lifts) ── */
     const intro = gsap.timeline({ paused: true, defaults: { ease: "power4.out" } });
-    intro
-      .to("#webgl", { opacity: 1, duration: 2.4, ease: "power2.out" }, 0)
-      .to(nav, { y: 0, autoAlpha: 1, duration: 1 }, 0.15)
-      .to(".hero__eyebrow-line", { scaleX: 1, duration: 0.9 }, 0.2)
-      .to(".hero__eyebrow-text", { autoAlpha: 1, y: 0, duration: 0.8 }, 0.35);
-    heroLineChars.forEach((chars, i) => {
-      intro.to(chars, { yPercent: 0, rotate: 0, duration: 1.3, stagger: 0.03 }, 0.3 + i * 0.12);
-    });
+        intro
+          // Start WebGL immediately
+          .to("#webgl", { opacity: 1, duration: 2.4, ease: "power2.out" }, 0)
+          
+          // Delay the UI just a fraction of a second so they don't fight WebGL for resources
+          .to(nav, { y: 0, autoAlpha: 1, duration: 1 }, 0.4) 
+          .to(".hero__eyebrow-line", { scaleX: 1, duration: 0.9 }, 0.5)
+          .to(".hero__eyebrow-text", { autoAlpha: 1, y: 0, duration: 0.8 }, 0.65);
+          
+        // Push the heavy SplitText stagger back a bit further
+        heroLineChars.forEach((chars, i) => {
+          intro.to(chars, { yPercent: 0, rotate: 0, duration: 1.3, stagger: 0.03 }, 0.7 + i * 0.12);
+        });
     intro
       .to(".hero__sub", { autoAlpha: 1, y: 0, duration: 1 }, 0.95)
       .to(".hero__actions", { autoAlpha: 1, y: 0, duration: 1 }, 1.1)
@@ -254,23 +259,28 @@
     const counter = { v: 0 };
 
     gsap.timeline({ delay: 0.1 })
-      .from(preChars, { yPercent: 115, rotate: 5, duration: 1, ease: "power4.out", stagger: 0.05 })
-      .from(".preloader__tag", { autoAlpha: 0, y: 14, duration: 0.7, ease: "power3.out" }, "-=0.55")
-      .to(counter, {
-        v: 100, duration: 1.6, ease: "power2.inOut",
-        onUpdate: () => { preCount.textContent = Math.round(counter.v); },
-      }, 0.2)
-      .to(preChars, { yPercent: -115, duration: 0.65, ease: "power3.in", stagger: 0.035 }, "+=0.1")
-      .to([".preloader__tag", ".preloader__bird", ".preloader__count"],
-        { autoAlpha: 0, duration: 0.4 }, "<0.2")
-      .to(".preloader__panel", {
-        yPercent: -100, duration: 0.95, ease: "power4.inOut", stagger: 0.1,
-        onStart: () => {
-          lenis && lenis.start();
-          intro.play();
-        },
-      }, "-=0.05")
-      .set(preloader, { display: "none" });
+          .from(preChars, { yPercent: 115, rotate: 5, duration: 1, ease: "power4.out", stagger: 0.05 })
+          .from(".preloader__tag", { autoAlpha: 0, y: 14, duration: 0.7, ease: "power3.out" }, "-=0.55")
+          .to(counter, {
+            v: 100, duration: 1.6, ease: "power2.inOut",
+            onUpdate: () => { preCount.textContent = Math.round(counter.v); },
+          }, 0.2)
+          .to(preChars, { yPercent: -115, duration: 0.65, ease: "power3.in", stagger: 0.035 }, "+=0.1")
+          .to([".preloader__tag", ".preloader__bird", ".preloader__count"],
+            { autoAlpha: 0, duration: 0.4 }, "<0.2")
+          // NEW LOGIC HERE: 
+          // 1. Fire the intro while the screen is still covered.
+          .add(() => {
+              lenis && lenis.start();
+              intro.play(); 
+          })
+          // 2. Add an empty dummy tween as a buffer (0.4s) to let the stutter happen invisibly.
+          .to({}, { duration: 0.6 })
+          // 3. NOW lift the panel. The intro is already partially playing smoothly underneath.
+          .to(".preloader__panel", {
+            yPercent: -100, duration: 1.35, ease: "power4.inOut", stagger: 0.1
+          })
+          .set(preloader, { display: "none" });
 
     // safety: never trap the user behind the preloader
     setTimeout(() => {
